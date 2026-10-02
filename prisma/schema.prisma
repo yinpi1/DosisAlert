@@ -1,0 +1,162 @@
+// Prisma Schema para DosisAlert - Farmacia Personal Digital
+// Compatible con PostgreSQL local y migrable directamente a Neon Serverless
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// 1. Entidad: Usuario
+model Usuario {
+  id          Int      @id @default(autoincrement())
+  rut         String   @unique
+  correo      String   @unique
+  contrasena  String
+  nombre      String?  // Opcional para personalización de saludo en la UI
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  medicamentos       Medicamento[]
+  horariosToma       HorarioToma[]
+  recordatorios      Recordatorio[]
+  tomas              Toma[]
+  alertasReposicion  AlertaReposicion[]
+  reportes           Reporte[]
+
+  @@map("usuarios")
+}
+
+// 2. Entidad: Medicamento
+model Medicamento {
+  id                 Int      @id @default(autoincrement())
+  usuarioId          Int
+  nombre             String
+  presentacion       String   // Ej: Comprimidos, Cápsulas, Jarabe, Gotas, Inhalador, etc.
+  cantidadDisponible Int      // Stock físico actual
+  cantidadMinima     Int      // Umbral para disparar alerta de reposición
+  estado             String   // Calculado por regla de negocio: "Disponible" | "Pocas unidades" | "Agotado"
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relaciones
+  usuario            Usuario             @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  horariosToma       HorarioToma[]
+  recordatorios      Recordatorio[]
+  tomas              Toma[]
+  alertasReposicion  AlertaReposicion[]
+
+  @@index([usuarioId])
+  @@map("medicamentos")
+}
+
+// 3. Entidad: Horario Toma
+model HorarioToma {
+  id             Int      @id @default(autoincrement())
+  usuarioId      Int
+  medicamentoId  Int
+  diasToma       String   // Ej: "Lunes, Miércoles, Viernes" o "Todos los días"
+  hora           String   // Formato 24h: "08:00", "20:00"
+  dosis          Int      @default(1) // Cantidad numérica a descontar del stock
+  estado         String   @default("Activo") // "Activo" | "Inactivo"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relaciones
+  usuario        Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  medicamento    Medicamento    @relation(fields: [medicamentoId], references: [id], onDelete: Cascade)
+  recordatorios  Recordatorio[]
+  tomas          Toma[]
+
+  @@index([usuarioId])
+  @@index([medicamentoId])
+  @@map("horarios_toma")
+}
+
+// 4. Entidad: Recordatorio
+model Recordatorio {
+  id               Int          @id @default(autoincrement())
+  usuarioId        Int
+  medicamentoId    Int
+  horarioTomaId    Int?
+  fechaProgramada  DateTime     // Fecha agendada
+  horaProgramada   String       // Ej: "09:00"
+  estado           String       @default("Pendiente") // "Pendiente" | "Tomado" | "Pospuesto" | "Cancelado"
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Relaciones
+  usuario          Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  medicamento      Medicamento  @relation(fields: [medicamentoId], references: [id], onDelete: Cascade)
+  horarioToma      HorarioToma? @relation(fields: [horarioTomaId], references: [id], onDelete: SetNull)
+  tomas            Toma[]
+
+  @@index([usuarioId])
+  @@index([medicamentoId])
+  @@map("recordatorios")
+}
+
+// 5. Entidad: Toma
+model Toma {
+  id                Int           @id @default(autoincrement())
+  usuarioId         Int
+  medicamentoId     Int
+  recordatorioId    Int?
+  horarioTomaId     Int?
+  fechaConfirmacion DateTime      @default(now())
+  horaConfirmacion  String        // Hora exacta de la confirmación (ej: "09:05")
+  cantidadTomada    Int           // Cantidad descontada
+  createdAt         DateTime      @default(now())
+
+  // Relaciones
+  usuario           Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  medicamento       Medicamento   @relation(fields: [medicamentoId], references: [id], onDelete: Cascade)
+  recordatorio      Recordatorio? @relation(fields: [recordatorioId], references: [id], onDelete: SetNull)
+  horarioToma       HorarioToma?  @relation(fields: [horarioTomaId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([medicamentoId])
+  @@map("tomas")
+}
+
+// 6. Entidad: Alerta Reposición
+model AlertaReposicion {
+  id               Int         @id @default(autoincrement())
+  usuarioId        Int
+  medicamentoId    Int
+  fechaGenerada    DateTime    @default(now())
+  horaGenerada     String      // Ej: "14:30"
+  cantidadRestante Int         // Stock restante al momento de alertar
+  estado           String      @default("Pendiente") // "Pendiente" | "Resuelta" | "Descartada"
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relaciones
+  usuario          Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  medicamento      Medicamento @relation(fields: [medicamentoId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([medicamentoId])
+  @@map("alertas_reposicion")
+}
+
+// 7. Entidad: Reporte
+model Reporte {
+  id                  Int      @id @default(autoincrement())
+  usuarioId           Int
+  fechaReporte        DateTime @default(now())
+  totalMedicamentos   Int      // Total de ítems registrados
+  cantidadPorReponer  Int      // Cuántos están en "Pocas unidades" o "Agotado"
+  createdAt           DateTime @default(now())
+
+  // Relaciones
+  usuario             Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("reportes")
+}
