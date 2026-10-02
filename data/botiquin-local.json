@@ -1,0 +1,76 @@
+{
+  "usuario": {
+    "id": 1,
+    "rut": "12.345.678-9",
+    "correo": "paciente@dosisalert.cl",
+    "nombre": "Juan Pérez González"
+  },
+  "medicamentos": [
+    {
+      "id": 1,
+      "usuarioId": 1,
+      "nombre": "Paracetamol 500 mg",
+      "presentacion": "Comprimidos / Pastillas",
+      "cantidadDisponible": 20,
+      "cantidadMinima": 5,
+      "estado": "Disponible",
+      "createdAt": "2026-10-02T22:06:47.031Z",
+      "updatedAt": "2026-10-02T22:06:47.031Z"
+    },
+    {
+      "id": 2,
+      "usuarioId": 1,
+      "nombre": "Losartán 50 mg",
+      "presentacion": "Comprimidos / Pastillas",
+      "cantidadDisponible": 3,
+      "cantidadMinima": 5,
+      "estado": "Pocas unidades",
+      "createdAt": "2026-10-02T22:06:47.031Z",
+      "updatedAt": "2026-10-02T22:06:47.031Z"
+    },
+    {
+      "id": 3,
+      "usuarioId": 1,
+      "nombre": "Omeprazol 20 mg",
+      "presentacion": "Cápsulas",
+      "cantidadDisponible": 0,
+      "cantidadMinima": 4,
+      "estado": "Agotado",
+      "createdAt": "2026-10-02T22:06:47.031Z",
+      "updatedAt": "2026-10-02T22:06:47.031Z"
+    },
+    {
+      "id": 4,
+      "usuarioId": 1,
+      "nombre": "Metformina 850 mg",
+      "presentacion": "Comprimidos / Pastillas",
+      "cantidadDisponible": 14,
+      "cantidadMinima": 6,
+      "estado": "Disponible",
+      "createdAt": "2026-10-02T22:06:47.031Z",
+      "updatedAt": "2026-10-02T22:06:47.031Z"
+    }
+  ],
+  "tomas": [],
+  "alertas": [
+    {
+      "id": 1,
+      "usuarioId": 1,
+      "medicamentoId": 2,
+      "horaGenerada": "09:00",
+      "cantidadRestante": 3,
+      "estado": "Pendiente",
+      "createdAt": "2026-10-02T22:06:47.031Z"
+    },
+    {
+      "id": 2,
+      "usuarioId": 1,
+      "medicamentoId": 3,
+      "horaGenerada": "10:00",
+      "cantidadRestante": 0,
+      "estado": "Pendiente",
+      "createdAt": "2026-10-02T22:06:47.031Z"
+    }
+  ],
+  "reportes": []
+}

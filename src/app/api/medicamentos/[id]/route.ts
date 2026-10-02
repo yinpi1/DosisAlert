@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
-import { getOrCreateDefaultUser } from '@/lib/user';
-import { calcularEstadoMedicamento } from '@/lib/medicamentos';
+import { dbService } from '@/lib/repository';
 
 interface Params {
   params: Promise<{ id: string }>;
 }
 
-// GET /api/medicamentos/[id] - Obtener un medicamento específico
+// GET /api/medicamentos/[id]
 export async function GET(request: Request, { params }: Params) {
   try {
     const { id } = await params;
@@ -17,16 +15,7 @@ export async function GET(request: Request, { params }: Params) {
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 });
     }
 
-    const medicamento = await prisma.medicamento.findUnique({
-      where: { id: medId },
-      include: {
-        horariosToma: true,
-        alertasReposicion: {
-          orderBy: { fechaGenerada: 'desc' },
-          take: 5,
-        },
-      },
-    });
+    const medicamento = await dbService.getMedicamentoById(medId);
 
     if (!medicamento) {
       return NextResponse.json({ success: false, error: 'Medicamento no encontrado' }, { status: 404 });
@@ -34,25 +23,18 @@ export async function GET(request: Request, { params }: Params) {
 
     return NextResponse.json({
       success: true,
-      data: {
-        ...medicamento,
-        estado: calcularEstadoMedicamento(medicamento.cantidadDisponible, medicamento.cantidadMinima),
-      },
+      data: medicamento,
     });
   } catch (error: unknown) {
     console.error('Error al obtener medicamento:', error);
     const mensaje = error instanceof Error ? error.message : 'Error desconocido';
-    return NextResponse.json(
-      { success: false, error: 'Error al consultar la base de datos.', details: mensaje },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: mensaje }, { status: 500 });
   }
 }
 
-// PUT /api/medicamentos/[id] - Actualizar medicamento
+// PUT /api/medicamentos/[id]
 export async function PUT(request: Request, { params }: Params) {
   try {
-    const user = await getOrCreateDefaultUser();
     const { id } = await params;
     const medId = parseInt(id, 10);
 
@@ -73,32 +55,15 @@ export async function PUT(request: Request, { params }: Params) {
       );
     }
 
-    // Regla de Negocio Crítica: Se recalcula automáticamente el estado
-    const nuevoEstado = calcularEstadoMedicamento(cantDisp, cantMin);
-
-    const medicamentoActualizado = await prisma.medicamento.update({
-      where: { id: medId },
-      data: {
-        nombre: nombre.trim(),
-        presentacion: presentacion.trim(),
-        cantidadDisponible: cantDisp,
-        cantidadMinima: cantMin,
-        estado: nuevoEstado,
-      },
+    const medicamentoActualizado = await dbService.updateMedicamento(medId, {
+      nombre,
+      presentacion,
+      cantidadDisponible: cantDisp,
+      cantidadMinima: cantMin,
     });
 
-    // Si cambió a estado de alerta, registrarla
-    if (nuevoEstado === 'Pocas unidades' || nuevoEstado === 'Agotado') {
-      const ahora = new Date();
-      await prisma.alertaReposicion.create({
-        data: {
-          usuarioId: user.id,
-          medicamentoId: medId,
-          horaGenerada: ahora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          cantidadRestante: cantDisp,
-          estado: 'Pendiente',
-        },
-      });
+    if (!medicamentoActualizado) {
+      return NextResponse.json({ success: false, error: 'No se encontró el medicamento a actualizar' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -108,15 +73,12 @@ export async function PUT(request: Request, { params }: Params) {
     });
   } catch (error: unknown) {
     console.error('Error al actualizar medicamento:', error);
-    const mensaje = error instanceof Error ? error.message : 'Error desconocido';
-    return NextResponse.json(
-      { success: false, error: 'Error al actualizar medicamento en PostgreSQL.', details: mensaje },
-      { status: 500 }
-    );
+    const mensaje = error instanceof Error ? error.message : 'Error al actualizar';
+    return NextResponse.json({ success: false, error: mensaje }, { status: 500 });
   }
 }
 
-// DELETE /api/medicamentos/[id] - Eliminar medicamento
+// DELETE /api/medicamentos/[id]
 export async function DELETE(request: Request, { params }: Params) {
   try {
     const { id } = await params;
@@ -126,20 +88,16 @@ export async function DELETE(request: Request, { params }: Params) {
       return NextResponse.json({ success: false, error: 'ID inválido' }, { status: 400 });
     }
 
-    await prisma.medicamento.delete({
-      where: { id: medId },
-    });
+    const eliminado = await dbService.deleteMedicamento(medId);
 
     return NextResponse.json({
       success: true,
+      eliminado,
       message: 'Medicamento eliminado correctamente.',
     });
   } catch (error: unknown) {
     console.error('Error al eliminar medicamento:', error);
-    const mensaje = error instanceof Error ? error.message : 'Error desconocido';
-    return NextResponse.json(
-      { success: false, error: 'Error al eliminar medicamento en PostgreSQL.', details: mensaje },
-      { status: 500 }
-    );
+    const mensaje = error instanceof Error ? error.message : 'Error al eliminar';
+    return NextResponse.json({ success: false, error: mensaje }, { status: 500 });
   }
 }
