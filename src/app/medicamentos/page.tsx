@@ -15,6 +15,7 @@ import {
   Info
 } from 'lucide-react';
 import { calcularEstadoMedicamento, obtenerBadgeEstado } from '@/lib/medicamentos';
+import ModalTomaRapida from '@/components/ModalTomaRapida';
 
 interface Medicamento {
   id: number;
@@ -53,6 +54,8 @@ export default function MedicamentosPage() {
   // Modales
   const [medicamentoVer, setMedicamentoVer] = useState<Medicamento | null>(null);
   const [medicamentoEliminar, setMedicamentoEliminar] = useState<Medicamento | null>(null);
+  const [modalTomaAbierto, setModalTomaAbierto] = useState(false);
+  const [medPreseleccionadoId, setMedPreseleccionadoId] = useState<number | undefined>(undefined);
 
   // Filtro rápido
   const [filtroTexto, setFiltroTexto] = useState('');
@@ -88,6 +91,10 @@ export default function MedicamentosPage() {
 
   useEffect(() => {
     cargarMedicamentos();
+
+    const handleToma = () => cargarMedicamentos();
+    window.addEventListener('dosisalert:toma-registrada', handleToma);
+    return () => window.removeEventListener('dosisalert:toma-registrada', handleToma);
   }, []);
 
   const resetFormulario = () => {
@@ -343,27 +350,39 @@ export default function MedicamentosPage() {
 
                         {/* Botones de Acción Accesibles */}
                         <td className="py-4 px-4">
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setMedPreseleccionadoId(med.id);
+                                setModalTomaAbierto(true);
+                              }}
+                              disabled={med.cantidadDisponible <= 0}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs border border-emerald-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                              title="Registrar que tomaste una dosis de este medicamento"
+                            >
+                              <Pill className="w-3.5 h-3.5 -rotate-45 text-emerald-600" />
+                              <span>Tomar</span>
+                            </button>
                             <button
                               onClick={() => setMedicamentoVer(med)}
-                              className="p-2.5 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors"
+                              className="p-2 rounded-xl text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
                               title="Ver información"
                             >
-                              <Eye className="w-5 h-5" />
+                              <Eye className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => iniciarEdicion(med)}
-                              className="p-2.5 rounded-xl text-slate-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                              className="p-2 rounded-xl text-slate-600 hover:text-blue-700 hover:bg-blue-50 transition-colors cursor-pointer"
                               title="Modificar datos"
                             >
-                              <Edit3 className="w-5 h-5" />
+                              <Edit3 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => setMedicamentoEliminar(med)}
-                              className="p-2.5 rounded-xl text-slate-600 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                              className="p-2 rounded-xl text-slate-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
                               title="Borrar de la lista"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -652,6 +671,14 @@ export default function MedicamentosPage() {
           </div>
         </div>
       )}
+
+      {/* Modal de Toma Rápida */}
+      <ModalTomaRapida
+        isOpen={modalTomaAbierto}
+        onClose={() => setModalTomaAbierto(false)}
+        medicamentoPreseleccionadoId={medPreseleccionadoId}
+        onTomaExitosa={cargarMedicamentos}
+      />
 
     </div>
   );

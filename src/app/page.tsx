@@ -11,9 +11,11 @@ import {
   CheckCircle2, 
   AlertTriangle,
   Clock,
-  Heart
+  Heart,
+  Zap
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import ModalTomaRapida from '@/components/ModalTomaRapida';
 
 interface ResumenBotiquin {
   total: number;
@@ -30,8 +32,9 @@ export default function HomePage() {
     agotados: 0,
   });
   const [cargando, setCargando] = useState(true);
+  const [modalTomaAbierto, setModalTomaAbierto] = useState(false);
 
-  useEffect(() => {
+  const cargarResumen = useCallback(() => {
     fetch('/api/medicamentos')
       .then((res) => res.json())
       .then((data) => {
@@ -48,6 +51,15 @@ export default function HomePage() {
       .catch((e) => console.error(e))
       .finally(() => setCargando(false));
   }, []);
+
+  useEffect(() => {
+    cargarResumen();
+
+    // Escuchar si se registra una toma desde cualquier componente
+    const handleTomaGlobal = () => cargarResumen();
+    window.addEventListener('dosisalert:toma-registrada', handleTomaGlobal);
+    return () => window.removeEventListener('dosisalert:toma-registrada', handleTomaGlobal);
+  }, [cargarResumen]);
 
   const modulos = [
     {
@@ -146,13 +158,42 @@ export default function HomePage() {
         )}
       </div>
 
+      {/* Botón de Acción Rápida: ¡Me tomé un remedio! */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border-2 border-emerald-300 shadow-md shadow-emerald-500/5 flex flex-col md:flex-row items-center justify-between gap-5 transition-all">
+        <div className="flex items-center gap-4 text-center md:text-left">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/30 shrink-0">
+            <Zap className="w-8 h-8 text-amber-300 fill-amber-300" />
+          </div>
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black uppercase tracking-wider mb-1">
+              <span>⚡ Botón de Acción Rápida</span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+              ¿Te tomaste un medicamento recién?
+            </h2>
+            <p className="text-slate-600 text-sm sm:text-base mt-0.5">
+              Presiona aquí para elegir cuál tomaste y descontarlo automáticamente del botiquín.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setModalTomaAbierto(true)}
+          className="w-full md:w-auto px-7 py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-base sm:text-lg rounded-2xl shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-3 shrink-0 cursor-pointer"
+        >
+          <Pill className="w-6 h-6 -rotate-45" />
+          <span>¡Ya me lo tomé!</span>
+        </button>
+      </div>
+
       {/* Pregunta Clara y Directa */}
-      <div>
+      <div className="space-y-1">
         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
           ¿Qué deseas hacer hoy?
         </h2>
-        <p className="text-base text-slate-600 mt-1">
-          Toca cualquiera de las opciones para entrar:
+        <p className="text-base text-slate-600">
+          Selecciona una opción para gestionar tus medicamentos y horarios:
         </p>
       </div>
 
@@ -198,6 +239,13 @@ export default function HomePage() {
           );
         })}
       </div>
+
+      {/* Modal de Acción Rápida para registrar toma */}
+      <ModalTomaRapida
+        isOpen={modalTomaAbierto}
+        onClose={() => setModalTomaAbierto(false)}
+        onTomaExitosa={cargarResumen}
+      />
 
     </div>
   );
